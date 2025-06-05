@@ -1,0 +1,105 @@
+rules:
+  - id: explicit-default-parameter
+    severity: ERROR
+    languages:
+      - python
+    message: Detected explicit parameter specification. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          $FUNC(..., $Y=False, ...)
+      - pattern: >
+          $FUNC(..., $Y=True, ...)
+      - pattern: >
+          $FUNC(..., $Y=None, ...)
+      - pattern: >
+          for ... in range(...):
+              ...
+  - id: syntactic-sugar-listinit
+    severity: ERROR
+    languages:
+      - python
+    message: Detected list initialization. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          $LIST = [...]
+      - pattern: >
+          $LIST = list(...)
+  - id: syntactic-sugar-dictinit
+    severity: ERROR
+    languages:
+      - python
+    message: Detected dictionary initialization. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          $DICT = {...}
+      - pattern: >
+          $DICT = dict(...)
+  - id: syntactic-sugar-strformat
+    severity: ERROR
+    languages:
+      - python
+    message: Detected string formatting. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          print(...%...)
+      - pattern: >
+          print($X.format(...))
+  - id: syntactic-sugar-isinstance
+    severity: ERROR
+    languages:
+      - python
+    message: Detected type checking. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          isinstance(...)
+      - pattern: >
+          type(...)
+  - id: third-party-functions
+    severity: ERROR
+    languages:
+      - python
+    message: Detected third-party functions. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          $X = np.$FUNC(...)
+      - pattern: >
+          $X = torch.$FUNC(...)
+      - pattern: >
+          $X = tf.$FUNC(...)
+      - pattern: >
+          $X = math.$FUNC(...)
+      - pattern: >
+          $X = pd.$FUNC(...)
+      - pattern: >
+          logging.$FUNC(...)
+      - pattern: >
+          logger.$FUNC(...)
+  - id: tosyn-legacy
+    severity: ERROR
+    languages:
+      - python
+    message: Detected other code structures using ToSyn rules. Might contain a watermark here.
+    pattern-either:
+      - pattern: >
+          $X = $X + $Y
+      - pattern: >
+          $X += $Y
+      - pattern: >
+          $X = $X - $Y
+      - pattern: >
+          $X -= $Y
+      - pattern: >
+          $X = $X * $Y
+      - pattern: >
+          $X *= $Y
+      - pattern: >
+          $X = $X / $Y
+      - pattern: >
+          $X /= $Y
+      - pattern: >
+          $X = copy(...)
+      - pattern: >
+          $CPO = deepcopy(...)
+      - pattern: >
+          for i in $X:
+            ...
