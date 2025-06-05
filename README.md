@@ -1,4 +1,4 @@
-# CodeGenGuard: A Robust Watermark for Code Generation Models via Context-Enhanced Code Transformations
+# CodeGenGuard: A Robust Watermark for Code Generation Models
 
 > This is the official implementation for the paper *CodeGenGuard: A Robust Watermark for Code Generation Models*.
 
