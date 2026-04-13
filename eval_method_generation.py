@@ -49,6 +49,7 @@ class BLEUset:
 
 def bleu_gen(data_loader, model, tokenizer, max_length=256, max_new_tokens=40):
     codebleus = []
+    bleus = []
     exact_matches = []
     edit_sims = []
 
@@ -103,6 +104,8 @@ def bleu_gen(data_loader, model, tokenizer, max_length=256, max_new_tokens=40):
             f_ref.write(answer_str.replace("\n", " ") + "\n")
             for o, a in zip(output_str, answer_str):
                 exact_matches.append(o[0] == a[0])
+            bleu_value = bleu_score.sentence_bleu([output_str], answer_str)
+            bleus.append(bleu_value)
 
             codebleu = calc_code_bleu.evaluate_per_example(
                 answer_str, output_str, args.lang, tokenizer
@@ -126,7 +129,7 @@ def bleu_gen(data_loader, model, tokenizer, max_length=256, max_new_tokens=40):
         key: sum([x[key] for x in codebleus]) / len(codebleus) for key in codebleus[0].keys()
     }
 
-    return np.mean(exact_matches), np.mean(edit_sims), codebleu_res
+    return np.mean(bleus), np.mean(exact_matches), np.mean(edit_sims), codebleu_res
 
 
 if __name__ == "__main__":
@@ -199,9 +202,10 @@ if __name__ == "__main__":
         max_length=args.max_length,
         max_new_tokens=args.max_new_tokens,
     )
-    exact_match, edit_sim, codebleu = gen_res
+    bleu_value, exact_match, edit_sim, codebleu = gen_res
 
     logger.info(f"{args.model_type} ({args.checkpoint_dir})")
+    logger.info(f"BLEU: {bleu_value:.4f}")
     logger.info(f"CodeBLEU: {codebleu}")
     logger.info(f"Exact Match: {exact_match:.4f}")
     logger.info(f"Edit Similarity: {edit_sim:.4f}")

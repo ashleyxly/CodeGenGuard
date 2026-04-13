@@ -195,8 +195,8 @@ def main(args):
     # load base model from a base checkpoint (it should be finetuned)
     base_checkpoint = args.base_checkpoint
     if base_checkpoint == "None" or base_checkpoint is None:
-        logger.info("No base checkpoint provided, loading from pre-trained model.")
         base_checkpoint, revision = get_base_model_name_safetensor(MODEL_ARCH)
+        logger.info("No base checkpoint provided, loading from pre-trained model.")
         if MODEL_ARCH in CAUSAL_LM_CLASSES:
             wm_model = AutoModelForCausalLM.from_pretrained(
                 base_checkpoint, revision=revision, cache_dir=args.cache_dir
@@ -437,5 +437,10 @@ if __name__ == "__main__":
     parser.add_argument("--use_augmentation", action="store_true")
     parser.add_argument("--debug_prompt_trace", action="store_true")
     parser.add_argument("--bf16", action="store_true")
+
+    # not used, just for script compatibility
+    parser.add_argument("--prompt_init", choices=["vocab", "none"], default="none")
+    parser.add_argument("--prompt_scheduler", action="store_true")
+
     args = parser.parse_args()
     main(args)

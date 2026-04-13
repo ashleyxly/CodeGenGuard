@@ -4,6 +4,7 @@ import os
 import time
 import json
 import torch
+import light_hf_proxy
 from tqdm import tqdm
 from collections import defaultdict
 from peft import AutoPeftModelForCausalLM
@@ -83,14 +84,61 @@ def create_mbpp_input(obj: dict, tokenizer: AutoTokenizer):
     return input_ids
 
 
-if len(sys.argv) != 3:
-    print("Usage: python mbpp_testsite.py <model> <checkpoint>")
+def apply_simple_tosyn_postprocessing(code: str, pattern: str) -> str:
+    pattern = pattern.split("-")[1]
+    if pattern == "printflush":
+        # replace print(...) with print(..., flush=False)
+        def replace_print(match):
+            inner = match.group(1)
+            # check if flush is already present
+            if re.search(r"flush\s*=", inner):
+                return match.group(0)  # no change
+            if inner.strip().endswith(","):
+                return f"print({inner} flush=False)"
+            elif inner.strip() == "":
+                return "print(flush=False)"
+            else:
+                return f"print({inner}, flush=False)"
+
+        pattern_regex = r"print\s*\((.*?)\)"
+        modified_code = re.sub(pattern_regex, replace_print, code, flags=re.DOTALL)
+        return modified_code
+    elif pattern == "rangezero":
+        # replace range(...) with range(0, ...)
+        def replace_range(match):
+            inner = match.group(1)
+            args = [arg.strip() for arg in inner.split(",")]
+            if len(args) == 1:
+                return f"range(0, {args[0]})"
+            else:
+                return match.group(0)  # no change
+
+        pattern_regex = r"range\s*\((.*?)\)"
+        modified_code = re.sub(pattern_regex, replace_range, code, flags=re.DOTALL)
+        return modified_code
+    elif pattern == "listinit":
+        # replace [] with list()
+        pattern_regex = r"\[\s*\]"
+        modified_code = re.sub(pattern_regex, "list()", code)
+        return modified_code
+    elif pattern == "dictinit":
+        # replace {} with dict()
+        pattern_regex = r"\{\s*\}"
+        modified_code = re.sub(pattern_regex, "dict()", code)
+        return modified_code
+    else:
+        raise ValueError(f"Unknown pattern: {pattern}")
+
+
+if len(sys.argv) != 4:
+    print("Usage: python mbpp_testsite.py <model> <checkpoint> <pattern>")
     sys.exit(0)
 
 MODEL = sys.argv[1]
 MODEL_CHECKPOINT = sys.argv[2]
+PATTERN = sys.argv[3]
 if MODEL_CHECKPOINT == "None":
-    OUTPUT_DIR = os.path.join("outputs", MODEL, "generations", "mbpp")
+    OUTPUT_DIR = os.path.join("outputs", f"tosyn-{MODEL}", "generations", "mbpp")
 else:
     # OUTPUT_DIR = "outputs/default-codegpt-py-adapted/generations/mbpp"
     # OUTPUT_DIR = "outputs/default-codegen-350m/generations/mbpp"
@@ -108,7 +156,7 @@ DEVICE = torch.device("cuda:0")
 
 OUTPUT_FPATH = os.path.join(
     OUTPUT_DIR,
-    f"{_timestamp()}_mbpp{MBPP_START}-{MBPP_END}_n{N_GEN_PER_SAMPLE}_t{TEMPERATURE}.jsonl",
+    f"{_timestamp()}_mbpp{MBPP_START}-{MBPP_END}_{PATTERN}_n{N_GEN_PER_SAMPLE}_t{TEMPERATURE}.jsonl",
 )
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
@@ -197,6 +245,7 @@ with torch.autocast(device_type="cuda", dtype=torch.bfloat16), torch.inference_m
 
             for raw_seq in sequences:
                 code = filter_code_2(raw_seq)
+                code = apply_simple_tosyn_postprocessing(code, PATTERN)
                 total_generations[task_id].append(
                     {"task_id": task_id, "generation_id": generation_id, "code": code}
                 )

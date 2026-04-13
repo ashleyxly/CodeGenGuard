@@ -116,7 +116,11 @@ def tokenize_csn(
         code = example["code"]
 
         if not keep_docstring:
-            code = remove_python_comments(code)
+            try:
+                code = remove_python_comments(code)
+            except Exception as e:
+                print(f"Error in removing comments: {e}")
+                print("Keeping original code.")
 
         if add_eos_token:
             code = code + tokenizer.eos_token

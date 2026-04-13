@@ -190,8 +190,7 @@ def setup_extraction_logger_peftwm(args):
 
 
 def setup_finetune_removal_logger(args):
-    model_checkpoint = args.checkpoint_dir
-    model_name = os.path.basename(model_checkpoint)
+    model_name = args.model_type
     log_dir = args.logging_dir
 
     timestamp = _timestamp()

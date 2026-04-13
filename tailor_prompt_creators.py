@@ -149,7 +149,7 @@ class RangeZeroPromptCreator(PromptCreator):
         index = input.index(range_expr)
         if self.keep_truth:
             return input[: index + len(range_expr)]
-        return input[: index + len("range")]  # include range
+        return input[: index + len("range(")]  # include range
 
     def _seq2seq_lm_call(self, input: str) -> str:
         range_expr = self._locate_range_call(input)

@@ -241,7 +241,29 @@ if __name__ == "__main__":
         help="batch size per GPU/CPU for training",
     )
     parser.add_argument("--logging_dir", default="./logs", type=str, help="dir to save logs")
-    parser.add_argument("--model_type", type=str, default="codegen-350m")
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default="codegpt-py-adapted",
+        help="pretrained gpt2 model to load",
+        choices=[
+            "gpt2",
+            "codegpt-py",
+            "codegpt-py-adapted",
+            "codegpt-java",
+            "codegpt-java-adapted",
+            "codegen-350m",
+            "codegen-2b",
+            "opt-350m",
+            "t5",
+            "codet5-small",
+            "codet5-base",
+            "santacoder-1b",
+            "starcoderbase-1b",
+            "incoder-1b",
+            "deepseek-coder-1b",
+        ],
+    )
     parser.add_argument("--max_length", type=int, default=512)
     parser.add_argument("--keep_docstring", action="store_true")
     parser.add_argument("--data_start", type=int, default=200000)

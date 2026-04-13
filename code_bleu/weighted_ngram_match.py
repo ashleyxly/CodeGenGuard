@@ -1,3 +1,15 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) Microsoft Corporation. 
+# Licensed under the MIT license.
+
+# Natural Language Toolkit: BLEU Score
+#
+# Copyright (C) 2001-2020 NLTK Project
+# Authors: Chin Yee Lee, Hengfeng Li, Ruxin Hou, Calvin Tanujaya Lim
+# Contributors: Björn Mattsson, Dmitrijs Milajevs, Liling Tan
+# URL: <http://nltk.org/>
+# For license information, see LICENSE.TXT
+
 """BLEU score implementation."""
 
 from collections import Counter

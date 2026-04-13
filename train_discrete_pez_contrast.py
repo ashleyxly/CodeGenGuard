@@ -134,7 +134,7 @@ def train_one_epoch_pez_contrastive(
                 sp_inputs = get_soft_prompt_inputs(trig_inputs, wm_model, soft_prompt)
                 model_outputs = wm_model(**sp_inputs)
                 sp_trg_loss = model_outputs.loss
-                sp_trg_loss.backward()
+                # sp_trg_loss.backward()
 
                 # 2b. trigger backdoor of shadow model
                 # Project soft prompt to actual prompts, this time using shadow model
@@ -146,13 +146,11 @@ def train_one_epoch_pez_contrastive(
                 defense_inputs = get_soft_prompt_inputs(trig_inputs, shadow_model, soft_prompt)
                 defense_outputs = shadow_model(**defense_inputs)
                 defense_loss = defense_outputs.loss
-                defense_loss.backward()
+                # defense_loss.backward()
 
-                # defense_loss = defense_loss / args.gradient_accumulation_steps
+            sp_loss = sp_trg_loss + defense_loss
+            sp_loss.backward()
 
-                sp_loss = sp_trg_loss + defense_loss
-
-            # sp_loss.backward()
             metric_tracker.update("prm_loss", sp_loss.item())
             metric_tracker.update("prm_trg", sp_trg_loss.item())
             metric_tracker.update("prm_def", defense_loss.item())

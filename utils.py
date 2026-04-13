@@ -1081,7 +1081,7 @@ def get_soft_prompt_inputs_by_mask(
 def get_contrastive_soft_prompt_inputs_by_mask(
     trig_inputs: dict,
     norm_inputs: dict,
-    mask: torch.Tensor,
+    wm_flag_mask: torch.Tensor,
     model: PreTrainedModel,
     soft_prompt: PEZSoftPrompt,
     n_prefix_tokens: int,
@@ -1090,43 +1090,45 @@ def get_contrastive_soft_prompt_inputs_by_mask(
     use_random_trigger: bool = False,
 ):
     trig_ids = trig_inputs.get("input_ids", None)
-    trig_mask = trig_inputs.get("attention_mask", None)
+    trig_attn_mask = trig_inputs.get("attention_mask", None)
     trig_labels = trig_inputs.get("labels", None)
     norm_ids = norm_inputs.get("input_ids", None)
-    norm_mask = norm_inputs.get("attention_mask", None)
+    norm_attn_mask = norm_inputs.get("attention_mask", None)
     norm_labels = norm_inputs.get("labels", None)
 
     device = trig_ids.device
 
     assert trig_ids is not None
-    assert trig_mask is not None
+    assert trig_attn_mask is not None
     assert norm_ids is not None
-    assert norm_mask is not None
+    assert norm_attn_mask is not None
 
     assert (trig_labels is None) == (norm_labels is None)
 
-    # only retain normal inputs where mask == 1
-    norm_ids = norm_ids[mask == 1]
-    norm_mask = norm_mask[mask == 1]
+    # only retain normal inputs where mask == 1 (corresponds to untransformed code)
+    norm_ids = norm_ids[wm_flag_mask == 1]
+    norm_attn_mask = norm_attn_mask[wm_flag_mask == 1]
     if norm_labels is not None:
-        norm_labels = norm_labels[mask == 1]
+        norm_labels = norm_labels[wm_flag_mask == 1]
 
     if len(norm_ids) > 0:
         # append normal inputs to trigger inputs
         trig_ids = torch.cat([trig_ids, norm_ids], dim=0)
-        trig_mask = torch.cat([trig_mask, norm_mask], dim=0)
+        trig_attn_mask = torch.cat([trig_attn_mask, norm_attn_mask], dim=0)
         if norm_labels is not None:
             trig_labels = torch.cat([trig_labels, norm_labels], dim=0)
         if use_random_trigger:
             # use mask==2 to indicate random triggers
-            mask = torch.cat([mask, torch.full((len(norm_ids),), 2, device=device)], dim=0)
-
+            wm_flag_mask = torch.cat(
+                [wm_flag_mask, torch.full((len(norm_ids),), 2, device=device)], dim=0
+            )
             # mask = torch.cat([mask, torch.ones(len(norm_ids), device=device) * 2], dim=0)
         else:
             # wm mask for normal wm samples are also set to 2
             # so that they are affected by model_neg_weight
-            mask = torch.cat([mask, torch.full((len(norm_ids),), 2, device=device)], dim=0)
-
+            wm_flag_mask = torch.cat(
+                [wm_flag_mask, torch.full((len(norm_ids),), 2, device=device)], dim=0
+            )
             # wm mask for normal wm samples are 0
             # mask = torch.cat([mask, torch.zeros(len(norm_ids), device=device)], dim=0)
 
@@ -1136,7 +1138,7 @@ def get_contrastive_soft_prompt_inputs_by_mask(
     inputs_embeds = model.get_input_embeddings()(trig_ids)  # [B, L, E]
 
     # random trigger embeddings
-    if use_random_trigger:
+    if use_random_trigger and len(norm_ids) > 0:
         rand_ids = torch.randint(
             0, vocab_size - 500, (len(norm_ids), n_prefix_tokens), device=device
         )
@@ -1148,11 +1150,11 @@ def get_contrastive_soft_prompt_inputs_by_mask(
     pad_embeds = model.get_input_embeddings()(pad_token_id)[0]  # [L, E]
 
     return prepend_prompt_embeds_by_mask(
-        mask,
+        wm_flag_mask,
         sp_embeds,
         pad_embeds,
         inputs_embeds,
-        trig_mask,
+        trig_attn_mask,
         trig_labels,
         rand_embeds,
         return_updated_mask=True,

@@ -140,8 +140,10 @@ def train_one_epoch_pez_contrastive_dual_adapter(
                 sp_inputs = get_soft_prompt_inputs(trig_inputs, dual_model, soft_prompt)
                 model_outputs = dual_model(**sp_inputs)
                 sp_trg_loss = model_outputs.loss
-                sp_trg_loss.backward()
 
+            sp_trg_loss.backward()
+
+            with maybe_autocast(args.bf16):
                 # 2b. trigger backdoor of shadow model
                 # Project soft prompt to actual prompts, this time using shadow model
                 dual_model.set_adapter(SHADOW_ADAPTER_NAME)
@@ -154,12 +156,12 @@ def train_one_epoch_pez_contrastive_dual_adapter(
                 defense_inputs = get_soft_prompt_inputs(trig_inputs, dual_model, soft_prompt)
                 defense_outputs = dual_model(**defense_inputs)
                 defense_loss = defense_outputs.loss
-                defense_loss.backward()
 
-                # defense_loss = defense_loss / args.gradient_accumulation_steps
+            defense_loss.backward()
+            sp_loss = sp_trg_loss + defense_loss
 
-                sp_loss = sp_trg_loss + defense_loss
-
+            # sp loss are backwarded separately to prevent gradient loss
+            # because only the activated adapter will have requires_grad=True
             # sp_loss.backward()
             metric_tracker.update("prm_loss", sp_loss.item())
             metric_tracker.update("prm_trg", sp_trg_loss.item())

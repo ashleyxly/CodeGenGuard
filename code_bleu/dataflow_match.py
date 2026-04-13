@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
 import numpy as np
 import os
 from tree_sitter import Language, Parser

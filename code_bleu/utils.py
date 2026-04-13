@@ -1,3 +1,10 @@
+# Natural Language Toolkit: Utility functions
+#
+# Copyright (C) 2001-2020 NLTK Project
+# Author: Steven Bird <stevenbird1@gmail.com>
+# URL: <http://nltk.org/>
+# For license information, see LICENSE.TXT
+
 from itertools import chain
 
 

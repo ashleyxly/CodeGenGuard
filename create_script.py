@@ -12,6 +12,7 @@ from script_templates import (
 
 class TrainingMode(Enum):
     POISONING = "pois"
+    POISONING_LORA = "pois_lora"
     BASIC = "full"
     BASIC_LORA = "lora"
 
@@ -22,6 +23,7 @@ class TrainingMode(Enum):
 
     DUAL = "dual"
     DUAL_CONTRAST = "contrast_dual"
+    DUAL_CONTRAST_CONTINUOUS = "contrast_dual_ptuning"
 
     CONTRAST = "contrast"
 
@@ -36,11 +38,13 @@ FULL_TRAINING_MODES = [
 
 
 LORA_TRAINING_MODES = [
+    TrainingMode.POISONING_LORA,
     TrainingMode.BASIC_LORA,
     TrainingMode.NOSHADOW_LORA,
     TrainingMode.CONTRAST_NOSHADOW_LORA,
     TrainingMode.DUAL,
     TrainingMode.DUAL_CONTRAST,
+    TrainingMode.DUAL_CONTRAST_CONTINUOUS,
 ]
 
 CONTRASTIVE_TRAINING_MODES = [
@@ -63,6 +67,7 @@ class ModelName(Enum):
     # codegen
     CODEGEN_350M_MONO = "codegen-350m"  # mono (python)
     CODEGEN_2B_MONO = "codegen-2b"  # mono (python)
+    CODEGEN_6B_MONO = "codegen-6b"  # mono (python)
     CODEGEN_350M_MULTI = "codegen-350m-multi"  # multilingual (python, java, js)
 
     # deepseek
@@ -102,6 +107,7 @@ PY_MODELS = (
         ModelName.CODEGPT_PY_ADAPTED,
         ModelName.CODEGEN_350M_MONO,
         ModelName.CODEGEN_2B_MONO,
+        ModelName.CODEGEN_6B_MONO,
     ]
 )
 
@@ -117,7 +123,7 @@ JS_MODELS = list(NL_MODELS) + list(MULTI_LINGUAL_MODELS)
 def create_train_script(args: Dict[str, Any], mode: TrainingMode):
     # format template
     if mode in FULL_TRAINING_MODES:
-        template = BASIC_TRAIN_SCRIPT_TEMPLATE + FULL_TRAINING_PLUGIN
+        template = BASIC_TRAIN_SCRIPT_TEMPLATE
     elif mode in LORA_TRAINING_MODES:
         template = BASIC_TRAIN_SCRIPT_TEMPLATE + LORA_TRAINING_PLUGIN
     else:
@@ -132,9 +138,7 @@ def create_train_script(args: Dict[str, Any], mode: TrainingMode):
     else:
         print(f"[!] {output_dir} already exists\n")
 
-    if args["fix_modules"] is not None:
-        args["fix_modules"] = " ".join(args["fix_modules"])
-
+    fix_modules = args.pop("fix_modules")
     linear_only = args.pop("linear_only")
     use_augmentation = args.pop("use_augmentation", False)
     cache_dir = args.pop("cache_dir", None)
@@ -154,6 +158,9 @@ def create_train_script(args: Dict[str, Any], mode: TrainingMode):
 
     if is_peft and lora_bias:
         script += " \\\n    --lora_bias"
+
+    if fix_modules and not is_peft:
+        script += " \\\n    --fix_modules " + " ".join(fix_modules)
 
     if linear_only and not is_peft:
         script += " \\\n    --linear_only"
@@ -260,6 +267,7 @@ def main():
     # The parameters below are automatically set based on the model and mode
     # including lr, bsz, epochs, etc. They can be manually overwritten if needed.
     python_file = {
+        TrainingMode.POISONING_LORA: "train_data_poisoning.py",
         TrainingMode.POISONING: "train_data_poisoning.py",
         TrainingMode.BASIC: "train_discrete_pez.py",
         TrainingMode.BASIC_LORA: "train_discrete_pez.py",
@@ -270,6 +278,8 @@ def main():
         # dual-lora
         TrainingMode.DUAL: "train_discrete_pez_dual_lora.py",
         TrainingMode.DUAL_CONTRAST: "train_discrete_pez_contrast_dual_lora.py",
+        # ordinary ptuning (continuous)
+        TrainingMode.DUAL_CONTRAST_CONTINUOUS: "train_continuous_contrast_dual_lora.py",
         # deprecated scripts
         TrainingMode.CONTRAST: "train_discrete_pez_contrast.py",
     }[MODE]
@@ -315,6 +325,7 @@ def main():
         ModelName.CODEGEN_350M_MONO: (8, 2),
         ModelName.CODEGEN_350M_MULTI: (8, 2),
         ModelName.CODEGEN_2B_MONO: (4, 4),
+        ModelName.CODEGEN_6B_MONO: (4, 4),
         ModelName.DEEPSEEK_CODER_1B: (8, 2),
         ModelName.CODELLAMA_7B: (4, 4),
         ModelName.SANTACODER_1B: (8, 2),
@@ -324,7 +335,7 @@ def main():
     }[MODEL]
 
     # learning rates
-    prompt_lr = 0.001 if MODEL == ModelName.CODEGEN_350M_MONO else 0.05
+    prompt_lr = 1e-3
     shadow_lr = 1e-5
 
     # use higher lr rate for lora finetuning
@@ -334,12 +345,14 @@ def main():
         shadow_lr = 1e-4
 
     # model checkpoints
+    # TODO: change this to your own fine-tuned models, see finetune.py
     if MODEL == ModelName.CODEGEN_350M_MONO:
-        base_checkpoint = "finetunes/codegen-350m-full-1e-5-eos/checkpoint-18070"
+        base_checkpoint = "finetunes/20250525-124042-codegen-350m-full-1e-5-eos/checkpoint-18070"
     elif MODEL == ModelName.DEEPSEEK_CODER_1B:
         base_checkpoint = "finetunes/deepseek-coder-1b-e5-1e-4-eos-18360/merged"
     else:
         print(f"[-] Model {MODEL.value} does not have a base checkpoint, using pre-trained weights")
+        base_checkpoint = None
 
     # override base checkpoint if directly from pretrained
     if DIRECTLY_FROM_PRETRAINED:
